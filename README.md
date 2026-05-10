@@ -75,3 +75,14 @@ to the bomb files, you can provide one or more template zip files.
 	--template=other.zip
 The --num-files option is *in addition* to whatever files are in the
 template.
+
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=zeronesun%2Fzipbomb&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=zeronesun/zipbomb&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=zeronesun/zipbomb&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=zeronesun/zipbomb&type=date&legend=top-left" />
+ </picture>
+</a>
