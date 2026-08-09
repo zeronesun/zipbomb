@@ -1,0 +1,23 @@
+To generate compressed_size.csv, which computes the compressed size for
+a range of uncompressed sizes of various compressors, first install the
+dependencies:
+
+apt install python3 build-essential zlib1g-dev zip unzip zopfli bzip2 p7zip-full
+
+Then create a link to the zipbomb script that's loadable as a module:
+
+ln -sf $HOME/zipbomb/zipbomb zipbomb.py
+
+Optionally edit compressed_size.sh to adjust PARALLELISM. The Zopfli
+step is the most memory-intensive and it requires about 0.625 GB of RAM
+per unit of parallelism.
+
+Then run the script. It takes a long time, mainly because of Zopfli. For
+me, it takes about 15 hours on a 16-CPU server.
+
+make compressed_size.csv.tmp
+
+Once it's finished, output a sorted and deduplicated file with a CSV
+header.
+
+make compressed_size.csv
