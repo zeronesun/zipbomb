@@ -4,3 +4,6 @@
 
 # 本地生成的中间数据目录
 data/zlib_deflate
+
+# CodeBuddy 本地项目数据
+.codebuddy/
