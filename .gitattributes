@@ -1,0 +1,10 @@
+# The Python scripts have no .py extension (e.g. `zipbomb`, `ratio`).
+# Force LF line endings so the shebang works on Unix checkouts.
+zipbomb text eol=lf
+ratio text eol=lf
+*.py text eol=lf
+*.R text eol=lf
+Makefile text eol=lf
+
+# zip bombs are binary data.
+*.zip binary
