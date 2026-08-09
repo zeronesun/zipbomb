@@ -1,0 +1,331 @@
+## Sample zip files for testing the features of different parsers
+
+The recursive zip bombs 42.zip (old, no password) and 42.password.zip (new,
+password "42") are now kept in the top-level `../recursive/` directory, separate
+from this parser-test sample set, to avoid accidental extraction:
+  - password version:  ../recursive/password/42.password.zip
+  - free version:      ../recursive/free/42.zip
+See `../recursive/README.md` for details and safety warnings.
+
+droste.zip - https://alf.nu/s/droste.zip
+Zip quine, extracts to itself and a JPEG.
+
+r.zip - http://swtch.com/r.zip
+Zip quine.
+
+bad_crc32.zip
+Incorrect CRC-32. Made by hand.
+
+zero_crc32.zip
+CRC-32 is 0x00000000 (and is incorrect). Made by hand.
+
+mismatched_filename.zip
+File is named "hello.bin" in the CDH and "hello.txt" in the LFH.
+
+file_count_0xffff.zip
+Contains 2¹⁶−1 files. See https://github.com/thejoshwolfe/yauzl/issues/108.
+```
+seq 1 65535 | while read n; do touch -d '2019-05-01 00:00:00 UTC' $(printf %04x $n); done
+rm -f file_count_0xffff.zip
+TZ=UTC zip -X file_count_0xffff.zip $(seq 1 65535 | while read n; do printf "%04x\n" $n; done)
+seq 1 65535 | while read n; do rm -f $(printf %04x $n); done
+```
+
+file_size_0xffffffff.zip
+Contains a file of 2³²−1 bytes. See https://github.com/thejoshwolfe/yauzl/issues/109.
+```
+# 65535 * 65537 = 0xffffffff
+dd if=/dev/zero bs=65535 count=65537 of=pad
+touch -d '2019-05-01 00:00:00 UTC' pad
+rm -f file_size_0xffffffff.zip
+TZ=UTC zip -9 -X file_size_0xffffffff.zip pad
+rm -f pad
+```
+
+short.zip
+Contains a file whose DEFLATE stream decompresses to 100 bytes, but
+whose declared uncompressed size is 50 bytes.
+
+long.zip
+Contains a file whose DEFLATE stream decompresses to 100 bytes, but
+whose declared uncompressed size is 200 bytes.
+
+
+## How to test various zip parsers.
+
+### Info-ZIP UnZip
+
+Run `unzip` and write to /dev/null, check stderr warnings and the exit status.
+
+```
+unzip -p FILE.ZIP > /dev/null
+echo $?
+```
+
+### Python zipfile
+
+```
+python3 -m zipfile -t FILE.ZIP
+```
+
+### Go archive/zip
+
+Save the following program to ziplist.go:
+
+```
+package main
+
+import (
+	"archive/zip"
+	"io"
+	"io/ioutil"
+	"fmt"
+	"os"
+)
+
+func length(f *zip.File) (int64, error) {
+	r, err := f.Open()
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+	return io.Copy(ioutil.Discard, r)
+}
+
+func main() {
+	z, err := zip.OpenReader(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	defer z.Close()
+	for _, f := range z.File {
+		n, err := length(f)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%d\t%s\n", n, f.Name)
+	}
+}
+```
+
+Then run
+
+```
+go run ziplist.go FILE.ZIP
+```
+
+### yauzl
+
+Save the following program to ziplist.js:
+
+```
+let yauzl = require("yauzl");
+yauzl.open(process.argv[2], {lazyEntries: true}, (err, zipfile) => {
+    if (err)
+        throw err;
+    zipfile.on("entry", entry => {
+        zipfile.openReadStream(entry, (err, r) => {
+            if (err)
+                throw err;
+            let n = 0;
+            r.on("data", chunk => n += chunk.length);
+            r.on("end", () => {
+                console.log(`${n}\t${entry.fileName}`);
+                zipfile.readEntry();
+            });
+        });
+    });
+    zipfile.readEntry();
+});
+```
+
+Then run
+
+```
+npm install yauzl
+node ziplist.js FILE.ZIP
+```
+
+### Nail examples/zip
+
+This required some manual hacking; I couldn't find any version of the upstream source code that compiled cleanly. Start with commit 4bd9cc29c4092abe7a77f8294aff2337bba02ec5 of https://github.com/jbangert/nail. Apply this patch:
+
+```
+diff --git a/examples/zip/extract.c b/examples/zip/extract.c
+index c6eb5a5..785a01f 100644
+--- a/examples/zip/extract.c
++++ b/examples/zip/extract.c
+@@ -7,6 +7,7 @@
+ #include <errno.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <setjmp.h>
+ #include "zip.nail.h"
+ #define FOREACH(val,coll) for(__typeof__((coll).elem[0]) *val=(coll).elem;val<(coll).elem + (coll).count;val++)
+ char *mmap_file(char *filename, size_t *size){
+@@ -32,7 +33,7 @@ int main(int argc,char **argv){
+                         printf("OOM\n");
+                         exit(-1);
+                 }
+-                NailArena_init(&arena,1024, &err);
++                NailArena_init(&arena,1024);
+                 zip = parse_zip_file(&arena,filedata,size);
+                 if(!zip){
+                         fprintf(stderr,"Err: Invalid ZIP file %s\n",argv[f]); 
+diff --git a/examples/zip/zip.c b/examples/zip/zip.c
+index e96ba03..65bfceb 100644
+--- a/examples/zip/zip.c
++++ b/examples/zip/zip.c
+@@ -22,7 +22,7 @@ int size_u32_parse(NailArena *foo, NailStream *fragment, NailStream *current, ui
+         fragment->pos = 0;
+         return 0;
+ }
+-int size_u32_generate(NailArena *tmp, NailStream *fragment, NailStream *current, uint32_t *size){ 
++int size_u32_generate(NailArena *tmp, NailOutStream *fragment, NailOutStream *current, uint32_t *size){ 
+         //TODO: Refactor into a stream append library!
+         if(NailOutStream_grow(current, 8*fragment->pos)<0)
+                 return -1;
+@@ -41,7 +41,7 @@ int offset_u32_parse(NailArena *tmp, NailStream *fragment, NailStream *current,
+         fragment->size = current->size - *offset;
+         return 0;
+ }
+-int offset_u32_generate(NailArena *tmp, NailStream *fragment, NailStream *current, uint32_t *offset)
++int offset_u32_generate(NailArena *tmp, NailOutStream *fragment, NailOutStream *current, uint32_t *offset)
+ {
+         if(NailOutStream_grow(current,8*fragment->pos)<0)
+                 return -1;
+@@ -88,7 +88,7 @@ int zip_compression_parse(NailArena *tmp, NailStream *uncompressed, NailStream *
+         }
+         return 0;
+ }
+-int zip_compression_generate(NailArena *tmp, NailStream *uncompressed, NailStream *compressed, uint16_t *compression_method, uint32_t *uncompressed_size){
++int zip_compression_generate(NailArena *tmp, NailOutStream *uncompressed, NailOutStream *compressed, uint16_t *compression_method, uint32_t *uncompressed_size){
+         *compressed = *uncompressed;
+         *compression_method = 0 ;
+         *uncompressed_size = compressed->pos;
+@@ -124,7 +124,7 @@ int zip_end_of_directory_parse(NailArena *tmp, NailStream *filestream, NailStrea
+         return -1;
+ }
+ 
+-int zip_end_of_directory_generate(NailArena *tmp,NailStream *filestream, NailStream *directory, NailStream *entire_file){
++int zip_end_of_directory_generate(NailArena *tmp,NailOutStream *filestream, NailOutStream *directory, NailOutStream *entire_file){
+         //TODO: just append both to current? 
+         *entire_file = *filestream;
+         if(NailOutStream_grow(entire_file,8*directory->pos)) return -1;
+@@ -139,7 +139,7 @@ int crc_32_parse(NailArena *tmp_arena,NailStream *str_uncompressed,uint32_t* crc
+         else
+                 return 0;
+ }
+-int crc_32_generate(NailArena *tmp_arena,NailStream *str_uncompressed,uint32_t* crc32_val){
++int crc_32_generate(NailArena *tmp_arena,NailOutStream *str_uncompressed,uint32_t* crc32_val){
+         *crc32_val = crc32(0L,str_uncompressed->data,str_uncompressed->pos);
+         return 0;
+ }
+diff --git a/generator/Makefile b/generator/Makefile
+index 84be47c..d3742bd 100644
+--- a/generator/Makefile
++++ b/generator/Makefile
+@@ -1,6 +1,8 @@
+ COMFLAGS := -I.. -ggdb -Wno-enum-compare
+ CFLAGS	 := $(COMFLAGS) -std=gnu11
+ CXXFLAGS := $(COMFLAGS) -std=c++11 -Wno-format -Wno-switch
++CXX := g++
++CC := gcc
+ LDFLAGS	 := # -lhammer
+ 
+ .SUFFIXES:
+@@ -26,13 +28,13 @@ nail_wrap.c : new_grammar.nail.h nail.i
+ rbnail.so: nail_wrap.c
+ 	gcc -c  nail_wrap.c
+ nail: main.o mk_parser.o mk_gen.o datatype.o util.o new_grammar.nail.o parser_template.c.o mk_directparser.o parser_template.h.o parser_template.cc.o
+-	clang++ $^ -o $@ $(LDFLAGS)
++	$(CXX) $^ -o $@ $(LDFLAGS)
+ 
+ %.o: %.cc $(wildcard *.h)
+-	clang++ $(CXXFLAGS) -c $< -o $@
++	$(CXX) $(CXXFLAGS) -c $< -o $@
+ 
+ %.o: %.c $(wildcard *.h)
+-	clang $(CFLAGS) -c $< -o $@
++	$(CC) $(CFLAGS) -c $< -o $@
+ 
+ 
+ clean: 
+```
+
+Compile the source code:
+
+```
+make -C generator
+make -C examples/zip
+```
+
+Then run
+
+```
+examples/zip/extract FILE.ZIP
+```
+
+### Android libziparchive
+
+Check out the source code.
+
+```
+git clone -b android-9.0.0_r1 https://android.googlesource.com/platform/system/core
+cd core
+```
+
+Apply this patch:
+
+```
+diff --git a/base/file.cpp b/base/file.cpp
+index 2f697a1cc..b311d9ecc 100644
+--- a/base/file.cpp
++++ b/base/file.cpp
+@@ -23,6 +23,7 @@
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
++#include <cstring>
+ #include <memory>
+ #include <mutex>
+ #include <string>
+diff --git a/base/logging.cpp b/base/logging.cpp
+index a31feefab..689f915b3 100644
+--- a/base/logging.cpp
++++ b/base/logging.cpp
+@@ -35,6 +35,7 @@
+ #include <sys/uio.h>
+ #endif
+ 
++#include <cstring>
+ #include <iostream>
+ #include <limits>
+ #include <mutex>
+```
+
+Compile:
+
+```
+g++ -o unzip -std=c++17 -Iinclude -Ibase/include -Iliblog/include -Ilibutils/include -Ilibziparchive/include libziparchive/{zip_archive.cc,unzip.cpp} base/{strings.cpp,file.cpp,logging.cpp,stringprintf.cpp} libutils/FileMap.cpp libunwindstack/tests/LogFake.cpp -lz
+```
+
+libziparchive comes with a handy command-line unzip utility program.
+
+```
+./unzip FILE.ZIP
+```
+
+### sunzip
+
+Extract zlib-1.2.11 into the same source directory. Then compile:
+
+```
+gcc -o sunzip -I zlib-1.2.11 -I zlib-1.2.11/contrib/infback9 -I zlib-1.2.11/contrib/blast sunzip.c zlib-1.2.11/contrib/infback9/{infback9,inftree9}.c zlib-1.2.11/contrib/blast/blast.c -L zlib-1.2.11 zlib-1.2.11/libz.a -lbz2
+```
+
+Then run
+
+```
+./sunzip -t < FILE.ZIP
+```

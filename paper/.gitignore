@@ -1,0 +1,7 @@
+data/zlib_deflate
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf

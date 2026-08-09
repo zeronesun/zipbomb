@@ -1,0 +1,130 @@
+Dear author,
+
+The 13th USENIX Workshop on Offensive Technologies (WOOT '19) program
+committee is delighted to inform you that your submission #18 has been
+accepted to appear in the conference.
+
+	   Title: A better zip bomb
+	 Authors: David Fifield (None)
+		Site: https://woot19.usenix.hotcrp.com/paper/18
+
+Your paper was one of 16 (conditionally) accepted out of 34 submissions.
+Congratulations!
+
+Reviews and comments are appended to this email. The submissions site also
+has reviews and comments, as well as more information about review scores.
+
+The final version of your paper is due is due on or before ** Tuesday, July
+23, 2019 **. You will receive a separate email with instructions on how to
+submit it, as well as on to submit an artifact if you wish.
+
+Contact woot19chairs@usenix.org with any questions or concerns.
+
+Thank you for submitting your work to WOOT '19, we look forward to seeing
+you in Santa Clara!
+
+Best regards,
+Clémentine Maurice and Alex Gantman
+WOOT’19 Program Chairs
+
+
+
+Review #18A
+===========================================================================
+
+Overall merit
+-------------
+4. Good paper, I will champion it
+
+Reviewer expertise
+------------------
+1. No familiarity - I'm reading this as an educated outsider.
+
+Reviewer confidence
+-------------------
+2. Medium - I understood most of the paper, but there were parts I didn't
+   follow.
+
+Paper summary
+-------------
+This paper reports on how to construct non-recursive zip bombs that achieve very high compression ratios. The authors explain in details how to build such bombs and compare different formats and building techniques. They also keep compatibility in mind by testing their zips on 7 different parsers.
+
+Comments for author
+-------------------
+I learned a lot by reading this paper and I discovered the world of zip bombs that was unfamiliar to me. Through both its text and the different figures, the paper explains well how this zip bomb is built and does not shy away from getting deep into the numbers. I really appreciate that the authors considered different file and compression formats while keeping compatibility as a high priority in their list of requirements.
+
+
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+Review #18B
+===========================================================================
+
+Overall merit
+-------------
+2. Weak paper, though I will not fight strongly against it
+
+Reviewer expertise
+------------------
+3. Knowledgeable - I know the area well (key related work is quite familiar
+   to me).
+
+Reviewer confidence
+-------------------
+3. High - I'm quite sure I understood the paper.
+
+Paper summary
+-------------
+The purpose of this paper is to demonstrate a way to create a bomb by overlapping the compressed files inside the zip archive. The paper presents the process with 3 different implementations and offers a comprehensive analysis of the possible optimizations, as well as a comparison with other known zip bombs.
+
+Comments for author
+-------------------
+The process of creating the bomb is quite simple and pretty well explained. It seems fun and made me want to try recreating it on my own. The comprehensive study about the possible optimizations and comparisons with other solutions is really interesting and welcome but may be a little bit too imposing compared to the implementation part.
+
+
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+Review #18C
+===========================================================================
+
+Overall merit
+-------------
+4. Good paper, I will champion it
+
+Reviewer expertise
+------------------
+3. Knowledgeable - I know the area well (key related work is quite familiar
+   to me).
+
+Reviewer confidence
+-------------------
+3. High - I'm quite sure I understood the paper.
+
+Paper summary
+-------------
+This paper explores a new technique to develop zip bombs. Zip bombs aren't a new thing. All previous zip bombs approaches rely on the fact that some zip extractor implementations recursively extract zip files contained in other zip files. The authors discuss a new technique that makes non-recursive implementations vulnerable as well. The approach builds on the idea of overlapping files: a single (compressed) kernel is referenced by many files: this trick leads to output sizes that increase quadratically in the input size, which in turns leads to extremely high compression rates. From the technical standpoint, the attacker is trickier than a simple "overlapping file", as the zip files imposes other constraints (e.g., different valid file names, valid CRC32, etc.). The paper performs an in-depth analysis over these many aspects, how to calculate efficiently CRC32 for the huge (uncompressed file), and an analysis on how to optimize the compression rate. The net result of this pa
+ per is a zip file of 10MB/46MB that uncompress to 281TB/4.5PB, respectively. Impressive!
+
+Comments for author
+-------------------
+I really liked this paper. Extremely well written, very easy to read. I liked the simplicity of the idea and the technical elegance of the implementation. I also liked how other non-core aspects of the zipbomb (e.g., aspects not strictly related to compression ratio, etc.) are discussed at length. I particularly enjoyed the various tricks to efficiently compute the CRC32 over the big uncompressed file. Truth be told, I couldn't really follow all the math-related points (I'm familiar with these crypto topics, but I'm very far from being a crypto guy), but the overall direction and technique seemed valid/reasonable to me. Given that the authors do have concrete zip bombs, I'm confident this technique actually works. This work is also open source, which is great.
+
+I have few suggestions / requests for clarification for this paper.
+
+- I'm a bit confused about whether it's possible to detect these zipbombs. Section 9 discusses how "detecting the type of zip bomb is easy: just look for overlapping files". The paper then says that this check is not enough, as you can even zip bombs based on the bzip2 compression algorithm, which do not rely on overlapping files. The paper concludes "In general, trying to predict in advance whether a zip file is safe to open or not is fraught". I agree with this last statement, but I'm wondering whether the simple "just look for overlapping files" would at least reliably block the DEFLATE-based attacks? My understanding is that the answer is yes. Is that correct? If yes, I would make it much clearer. Also, since these DEFLATE attacks are the most powerful and compatible attacks discussed in the paper, implementing this check may actually be worth it. Did you consider notifying the developers of the various zip parsing libraries? It may be worth it to check with them and see 
+ whether they would be open to add checks for overlapping files---that would be a nice additional contribution.
+
+- Android APKs are zip files. How difficult is it to create a working poc of an APK bomb? Is it possible to create an APK such that a simple "adb install bomb.apk" would kill the Android device? Are zip parsers within the Android framework vulnerable to these attacks?
+
+- Section 9 says "Coldwind [8 p47] has previously suggested overlapping files in the style of section 3. It would be great if the authors could be clearer about the comparison with this previous work. I did check this previous work, and it seems that [8] slides only mention "what if more CDH point to the same LFH?". I of course don't see any problems with it, but I would suggest the authors to clarify that this [8] only poses a "question", without actually exploring it.
+
+- (more a curiosity than a concern) while it's possible to "test" zbsm.zip, how is it possible to properly test the zblg.zip and zbxl.zip, which uncompress to 281TB and 4.5PB? Did the authors do some tests? I'm of course not suggesting the authors to obtain a multi-PB storage, I'm just wondering whether the authors did simpler tests like trying to unzip the zipbomb and see, say, 2TB of disks suddenly vanish? Is there some better trick to test the validity of these huge zips?
+
+Nitpicks
+
+- "we would like find" => "we would like to find"
+- Figure 5 caption. For clarity purposes, I suggest that authors to include the leading 0 when discussing the binary representation of 0xedb88320.
+
+
+
