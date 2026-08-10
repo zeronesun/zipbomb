@@ -1,3 +1,5 @@
+
+
 # A better zip bomb
 
 > **Paper**: WOOT '19 (13th USENIX Workshop on Offensive Technologies), August 2019
@@ -199,7 +201,7 @@ files listed on the command line.
 	zbxl.zip	4507981427706459 / 45876952	98262444.01996146	+79.924 dB
 
 
-## zipbomb usage
+## zipbomb script options
 
 The required options are the number of files you want the zip bomb to
 contain,
